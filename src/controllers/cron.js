@@ -31,9 +31,19 @@ exports.reloadTriggers = async function (user) {
     });
   }
   console.log(`${cronTriggers.length} cron triggers loaded`)
+  console.log(await cronQueue.getRepeatableJobs());
 }
 
 function getCronString(str) {
-  // BullMQ doesn't understand ? in a cron string.
-  return getCronStringOrig(str, "MIN HOR DOM MON WEK").replace("?", "*");
+  var newstr;
+  const regex = /([\*\/0-9A-Z-]+ ){4}([\*\/0-9A-Z-]+)/;
+  if (regex.test(str)) {
+    newstr = str;
+  } else {
+    // BullMQ doesn't understand ? in a cron string.
+    newstr = getCronStringOrig(str, "MIN HOR DOM MON WEK").replace("?", "*"); 
+  }
+  
+  console.log(`get cron string: ${str}, ${newstr}`);
+  return newstr;
 }

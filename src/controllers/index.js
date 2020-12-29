@@ -19,6 +19,12 @@ router.use("/", authRoutes);
 const { router: remarkableRouter } = require("./remarkable");
 router.use("/connect", requiresLoggedIn(), remarkableRouter);
 
+// Use basic auth
+router.use("/save", require("./url").router)
+
+const { router: googleRouter } = require("./google");
+router.use("/google", requiresLoggedIn(), googleRouter);
+
 router.use("/", requiresLoggedIn(), require("./rssfeeds").router);
 
 router.use("/intern", requiresAdmin(), require("./intern"));
@@ -28,7 +34,7 @@ const { reloadTriggers } = require("./cron");
 const { startWorker } = require("./jobqueue");
 
 (async () => {
-  const users = await getAllUsers();
+    const users = await getAllUsers();
   for (const user of users) {
     await reloadTriggers(user);
   }

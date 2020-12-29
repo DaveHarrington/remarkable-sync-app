@@ -25,6 +25,8 @@ if [ ! -f /app/bin/redis-server ]; then
   nice make PREFIX=/app install
 fi
 
+python3 -m rmrl --version || pip3 install rmrl
+
 # cd ~
 # pnpm install --reporter silent --prefer-offline --audit false
 # npm run-script run --silent

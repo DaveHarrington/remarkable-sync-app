@@ -8,19 +8,23 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 
+const fileUpload = require('express-fileupload');
+
 const { logInit } = require("./log");
 const { passportInit } = require("./passport");
 const { viewInit } = require("./views");
 
 exports.initApp = function(app) {
   logInit(app);
-  
+
   app.use(cors());
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: true }));
-  
+
+  app.use(fileUpload());
+
   app.use(cookieParser());
-  if (process.env.SESSION_SECRET == null) {
+  if (!process.env.SESSION_SECRET) {
     throw Error("Set a random string in .env for SESSION_SECRET");
   }
   app.use(
@@ -34,8 +38,8 @@ exports.initApp = function(app) {
   );
 
   passportInit(app);
-  
+
   viewInit(app);
-  
+
   return app;
 }

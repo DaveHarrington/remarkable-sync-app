@@ -6,11 +6,9 @@ block page
     if user
       h2.text-1xl.text-center Welcome back!
       div
-        if hasToken
-          a(href="/remarkabletoken") View/Delete Remarkable Token
-        else
-          a(href="/connect/remarkable") Connect Remarkable
+        a(href="/connect/remarkable") Connect Remarkable
       div
+        a(href="/google/login") Connect Google
         a(href="/intern/setconfig") Reload your config
 
       a(href="/logout").text-red-400 Logout

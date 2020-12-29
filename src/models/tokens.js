@@ -19,6 +19,7 @@ const TABLE = "tokens";
 
 exports.storeToken = async (user, token_name, token) => {
   if (user == null) throw Error("No user given");
+  if (token_name == null) throw Error("token_name can't be null");
   const db = await openDb();
 
   await db.run(`
@@ -35,7 +36,9 @@ exports.storeToken = async (user, token_name, token) => {
 
 exports.getToken = async (user, token_name) => {
   if (user == null) throw Error("No user given");
+  if (token_name == null) throw Error("token_name can't be null");
   const db = await openDb();
+
   var row = await db.get(
     `SELECT token_json FROM ${TABLE} WHERE user_id=:user_id AND token_name=:token_name`,
     { ":user_id": user.id, ":token_name": token_name }
@@ -54,3 +57,4 @@ exports.deleteToken = async (user, token_name) => {
 };
 
 exports.REMARKABLE = "remarkable";
+exports.GOOGLE = "google";

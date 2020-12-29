@@ -3,7 +3,7 @@ const router = express.Router();
 exports.router = router;
 
 const Epub = require("epub-gen");
-const feedparser = require("feedparser-promised");
+let Parser = require("rss-parser");
 var FormData = require("form-data");
 const fs = require("fs");
 const got = require("got");
@@ -11,6 +11,8 @@ const { DateTime } = require("luxon");
 const stream = require("stream");
 const tempy = require("tempy");
 const util = require("util");
+const { CookieJar } = require("tough-cookie");
+const { parse } = require("node-html-parser");
 
 const { getRemarkableClient, getFolderNameToId } = require("./remarkable");
 const { getFeeds, updateLastSeenGuid } = require("../models/rssfeeds");
@@ -18,34 +20,53 @@ const { getPref } = require("../models/remarkable-prefs");
 const { getToken, REMARKABLE } = require("../models/tokens");
 
 const pipeline = util.promisify(stream.pipeline);
+let parser = new Parser();
 
 const MAX_ITEMS_PER_FEED = 5;
 
-router.get("/getfeeds", async (req, res) => {
-
-  res.header("Content-Type", "application/json");
-
-  var sentCount = -1;
-  try {
-    sentCount = await sendFeedsToRemarkable(req.user, { force: true });
-  } catch (err) {
-    res.status(500).json({ success: false, msg: err });
-    throw err;
-  }
-
-  res.json({
-    success: true,
-    msg: `Sent ${sentCount} article(s) to Remarkable`
-  });
-});
-
-const default_format = function(item) {
-  if (item["atom:content"] != null) {
-    item["content:encoded"] = item["atom:content"];
-  }
+const default_format = async function (item) {
+  var content = item["content:encoded"] || item["content"];
   return `
-    <div color:grey>by ${item.author}</div><br/>
-    ${item["content:encoded"]["#"]}`;
+    <h1>${item.title}</h1>
+    <div color:grey>by ${item.creator}</div><br/>
+    ${content}`;
+};
+
+const substack_format = async function (item) {
+  if (item.title.toLowerCase().includes("open thread")) return;
+  return await default_format(item);
+};
+
+const FORMATS = {
+  // Regular Substack
+  "Astral Codex Ten": substack_format,
+  // With login cookie
+  "Yglesias - Slow Boring": async function (item) {
+    if (item.link.includes("-thread-")) return; // Skip comment thread posts
+    if (
+      !item.content ||
+      item.content.includes("Listen to more mind-expanding audio")
+    ) {
+      return;
+    }
+    const cookieJar = new CookieJar();
+    const setCookie = util.promisify(cookieJar.setCookie.bind(cookieJar));
+    await setCookie(
+      `connect.sid=${process.env.SLOW_BORING_COOKIE}`,
+      "https://www.slowboring.com"
+    );
+    const res = await got(item.link, { cookieJar });
+    const root = parse(res.body, {
+      blockTextElements: {
+        script: false,
+      },
+    });
+
+    return `
+    <h1>${item.title}</h1>
+    <div color:grey>by ${item.creator}</div><br/>
+    ${root.querySelector(".markup").toString()}`;
+  },
 };
 
 async function sendFeedsToRemarkable(user, args) {
@@ -56,33 +77,58 @@ async function sendFeedsToRemarkable(user, args) {
 
   var title = `${datestr} ` + (args["title"] || "RSS Feeds");
 
-  var feeds = await getFeeds(user.id);
+  var feeds = await getFeeds(user);
+  if (args.feed) {
+    feeds = feeds.filter((f) => f["name"] == args.feed);
+    console.log(`Feed = ${args.feed}; ${JSON.stringify(feeds, null, 2)}`);
+  }
 
   var all_content = [];
   var last_guid = [];
   for (const feed_conf of feeds) {
-    var format = default_format;
-
-    let feed = await feedparser.parse(feed_conf.url, feed_conf.parse_options);
+    var format = FORMATS[feed_conf.name] || default_format;
+    var feed = [];
+    try {
+      feed = await parser.parseURL(feed_conf.url);
+    } catch (err) {
+      console.error("Error parsing feed: " + feed_conf.url);
+      console.error(err);
+      continue;
+    }
     var feed_content = [];
-    for (var i = 0; i < feed.slice(0, MAX_ITEMS_PER_FEED).length; i++) {
-      var item = feed[i];
-      if (item.guid == feed_conf.last_guid && !args["force"]) {
-        // console.log(`found last guid (${item.guid}) for ` + feed_conf.name);
+    for (var i = 0; i < feed.items.slice(0, MAX_ITEMS_PER_FEED).length; i++) {
+      var item = feed.items[i];
+      if (!item.guid) item.guid = item.link;
+      if (item.guid == feed_conf.last_guid && args["force"] != true) {
+        console.log(`found last guid (${item.guid}) for ` + feed_conf.name);
         break;
       }
+      try {
+        var formated = await format(item);
+      } catch (err) {
+        console.error("Could not parse for feed: " + feed_conf.name);
+        console.error(item);
+        console.error(err);
+        var formatted = `
+          ${feed_conf.name}: ${item.title}
+
+          Error formatting
+          ${err.toString()}
+        `;
+      }
+      if (formated == null) continue;
 
       feed_content.push({
-        title: feed_conf.name + ": " + item.title,
-        data: format(item)
+        title: `${feed_conf.name}: ${item.title}`,
+        data: formated,
       });
     }
-    if (!args["force"]) {
-      last_guid[feed_conf.name] = feed[0].guid;
+    if (args["force"] != true && feed.items && feed.items[0]) {
+      last_guid[feed_conf.name] = feed.items[0].guid;
     }
     all_content = all_content.concat(feed_content);
   }
-  // console.log("done getting feed content");
+  console.log("done getting feed content");
 
   if (all_content.length == 0) {
     console.log("No new content found");
@@ -92,44 +138,48 @@ async function sendFeedsToRemarkable(user, args) {
   var tmp_epub = tempy.file({ extension: "epub" });
 
   const option = {
+    appendChapterTitles: false,
     title: title,
     tocTitle: "Posts",
     author: "remarkable-syncer",
-    content: all_content
+    content: all_content,
   };
 
-  // console.log("Generating EPUB");
   await new Epub(option, tmp_epub).promise;
-  // console.log("Done: " + tmp_epub);
 
   // Set margins so toolbar can be open
   var content_opts = {
-    margins: 150
+    margins: 150,
+    extraMetadata: {
+      LastTool: "Finelinerv2",
+      LastPen: "Finelinerv2",
+    },
   };
 
-  // console.log("Reading epub in");
   const tmp_epub_buffer = fs.readFileSync(tmp_epub);
 
-  // console.log("Sending epub to remarkable");
   const feeds_folder_name = await getPref(user, "feeds_folder"); // null if not set will save to root
   const feeds_folder_id = await getFolderNameToId(user, feeds_folder_name);
 
   const remarkClient = await getRemarkableClient(user);
-  // const epubDocId = await remarkClient.uploadEPUB(
-  //   title,
-  //   tmp_epub_buffer,
-  //   feeds_folder_id,
-  //   content_opts
-  // );
+  const epubDocId = await remarkClient.uploadEPUB(
+    title,
+    tmp_epub_buffer,
+    feeds_folder_id,
+    content_opts
+  );
   console.log("Sent epub: " + title);
 
+  console.log("Last GUIDs");
+  console.log(last_guid);
   for (const feed_name in last_guid) {
     await updateLastSeenGuid(user, feed_name, last_guid[feed_name]);
   }
-  
+
   return all_content.length;
 }
+
 exports.sendFeedsToRemarkable = sendFeedsToRemarkable;
 exports.jobFuncs = {
-  "rssfeeds:sendFeedsToRemarkable": sendFeedsToRemarkable
+  "rssfeeds:sendFeedsToRemarkable": sendFeedsToRemarkable,
 };

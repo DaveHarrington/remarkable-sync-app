@@ -23,8 +23,6 @@ router.get("/remarkable", async (req, res) => {
   try {
     hasToken = (await getToken(req.user, REMARKABLE) != null);
   } catch (err) {};
-  
-  console.log(hasToken);
 
   res.render("connect/remarkable", { hasToken: hasToken });
 });
@@ -34,25 +32,25 @@ router.post("/remarkable", async (req, res) => {
     res.redirect(req.originalUrl);
   }
   const code = req.body.code;
-           
+
   const code_regex = /^[a-z]{8}$/;
   if (code == null || !code.match(code_regex)) {
     req.flash('message', "Code must be 8 letters only");
     res.redirect(req.originalUrl);
   }
-  
+
   const client = new RemarkableClient();
   const deviceToken = await client.register({ code: code });
 
   await storeToken(req.user, REMARKABLE, deviceToken);
-  
+
   req.flash("message", "Success!");
   res.redirect(req.originalUrl);
 });
 
 router.post("/remarkable/delete", async (req, res) => {
   await deleteToken(req.user, REMARKABLE);
-  
+
   req.flash("message", "Token deleted");
   res.redirect("/connect/remarkable");
 });

@@ -23,28 +23,31 @@ exports.ROLE_TEST = "test";
 exports.findOneByEmailPassword = async (email, password) => {
   const db = await openDb();
 
-  const row = await db.get(`SELECT * FROM ${TABLE} WHERE email=:email`, {
+  var user = await db.get(`SELECT * FROM ${TABLE} WHERE email=:email`, {
     ":email": email
   });
 
-  if (row === null) return null;
-  const password_hash = hashPassword(password, row.salt);
-  if (password_hash === row.password_hash) return row;
+  if (!user) return null;
+
+  const password_hash = hashPassword(password, user.salt);
+  if (password_hash === user.password_hash) return user;
+  throw new Error("Wrong password");
 };
 
-exports.findOneById = async user_id => {
+async function findOneById(user_id) {
   const db = await openDb();
   return db.get(`SELECT id, email, role FROM ${TABLE} WHERE id=:id`, {
     ":id": user_id
   });
 };
+exports.findOneById = findOneById;
 
 exports.register = async (email, password) => {
   const salt = crypto.randomBytes(128).toString("hex");
   const password_hash = hashPassword(password, salt);
 
   const db = await openDb();
-  await db.run(
+  var info = await db.run(
     `
     INSERT INTO ${TABLE} (email, role, password_hash, salt)
      VALUES (:email, :role, :password_hash, :salt)
@@ -57,6 +60,8 @@ exports.register = async (email, password) => {
       ":salt": salt
     }
   );
+  
+  return await findOneById(info.lastID);
 };
 
 exports.setRole = async (user, role) => {
@@ -78,3 +83,4 @@ function hashPassword(password, salt) {
   hash.update(salt);
   return hash.digest("hex");
 }
+

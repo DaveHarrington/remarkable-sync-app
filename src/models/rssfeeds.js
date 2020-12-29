@@ -21,25 +21,49 @@ const TABLE = "rssfeeds";
 
 exports.setFeeds = async (user, feeds_conf) => {
   if (user == null) throw Error("No user given");
-  const db = await openDb();
+
   const existing_rows = await getFeeds(user);
-  const existing = existing_rows.map(x => x.name);
-  for (const name of existing) {
-    if (!(name in feeds_conf)) {
-      db.run(`DELETE FROM ${TABLE} WHERE user_id=:user_id AND name=:name`, {
-        ":user_id": user.id,
-        ":name": name
-      });
-    }
+  const removed = existing_rows
+    .map(x => x.name)
+    .filter(x => !feeds_conf.map(x => x.name).includes(x));
+
+  const db = await openDb();
+  for (const name of removed) {
+    console.log("Deleting");
+    console.log({
+      ":user_id": user.id,
+      ":name": name
+    });
+    db.run(`DELETE FROM ${TABLE} WHERE user_id=:user_id AND name=:name`, {
+      ":user_id": user.id,
+      ":name": name
+    });
   }
 
   for (const feed of feeds_conf) {
+    var last_guid = null;
+
+    for (const row of existing_rows) {
+      if (row.name == feed.name) {
+        last_guid = row.last_guid;
+        break;
+      }
+    }
+
+    console.log("Insert / replace feed");
+    console.log({
+        ":user_id": user.id,
+        ":name": feed.name,
+        ":url": feed.url,
+        ":last_guid": last_guid
+    });
     await db.run(
-      `INSERT OR REPLACE INTO ${TABLE} (user_id, name, url) VALUES (:user_id, :name, :url)`,
+      `INSERT OR REPLACE INTO ${TABLE} (user_id, name, url, last_guid) VALUES (:user_id, :name, :url, :last_guid)`,
       {
         ":user_id": user.id,
         ":name": feed.name,
-        ":url": feed.url
+        ":url": feed.url,
+        ":last_guid": last_guid
       }
     );
   }
@@ -49,7 +73,7 @@ const getFeeds = async user => {
   if (user == null) throw Error("No user given");
   const db = await openDb();
   const feeds = await db.all(
-    `SELECT name, url FROM ${TABLE} WHERE user_id=:user_id`,
+    `SELECT name, url, last_guid FROM ${TABLE} WHERE user_id=:user_id`,
     { ":user_id": user.id }
   );
 
