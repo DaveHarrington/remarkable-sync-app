@@ -20,7 +20,8 @@ exports.initApp = function(app) {
   app.use(bodyParser.urlencoded({ extended: true }));
   
   app.use(cookieParser());
-  if (process.env.SESSION_SECRET == null) {
+  if (process.env.SESSION_SECRET == null || process.env.SESSION_SECRET == '') {
+
     throw Error("Set a random string in .env for SESSION_SECRET");
   }
   app.use(

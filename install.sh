@@ -8,12 +8,14 @@ if [ ! -d "$REMARK_API_FORK" ]; then
   cd "$REMARK_API_FORK"
   yarn install
 fi
+
 if [ ! -f "$REMARK_API_FORK"dist/src/remarkable.js ]; then
   cd "$REMARK_API_FORK"
   npx tsc
   cp ./package.json dist/
 fi
 
+# Build and install redis
 if [ ! -f /app/bin/redis-server ]; then
   mkdir -p /app/.data/var/run/
   mkdir -p /app/bin
