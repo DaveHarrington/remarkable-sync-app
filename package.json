@@ -1,0 +1,40 @@
+{
+  "name": "remarkable-sync-app",
+  "version": "0.0.1",
+  "description": "App for scripting content in Remarkable Cloud",
+  "main": "server.js",
+  "scripts": {
+    "install": "bash install.sh",
+    "start-redis": "/app/bin/redis-server /app/.redis.conf",
+    "start": "npm run install && npm run start-redis && node --max-old-space-size=2048 src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "node-pandoc-promise": "^0.0.6",
+    "uuid": "^8.3.2",
+    "luxon": "^1.25.0",
+    "epub-gen": "^0.1.0",
+    "remarkable-typescript-dave": "https://github.com/DaveHarrington/reMarkable-typescript.git#5cd6cacface02995f8447c077a7c901e420ac823",
+    "feedparser-promised": "^2.0.0",
+    "cors": "^2.8.5",
+    "util": "^0.12.3",
+    "got": "^11.8.1",
+    "form-data": "^3.0.0",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.3",
+    "stream": "^0.0.2",
+    "sqlite3": "^5.0.0",
+    "sqlite": "^4.0.17",
+    "bullmq": "^1.12.2",
+    "@darkeyedevelopers/natural-cron.js": "^1.0.2",
+    "extract-zip": "^2.0.1",
+    "tempy": "^0.7.1",
+    "pug": "^3.0.0",
+    "morgan": "^1.10.0",
+    "log-timestamp": "^0.3.0"
+  },
+  "engines": {
+    "node": "12.x"
+  },
+  "license": "MIT"
+}

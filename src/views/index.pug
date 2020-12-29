@@ -1,0 +1,28 @@
+extends global/layout.pug
+block page
+  .content.py-8.px-4
+    h1.mb-8.text-3xl.text-center Remarkable Sync App
+    
+    if user
+      h2.text-1xl.text-center Welcome back!
+      div
+        if hasToken
+          a(href="/remarkabletoken") View/Delete Remarkable Token
+        else
+          a(href="/connect/remarkable") Connect Remarkable
+      div
+        a(href="/intern/setconfig") Reload your config
+
+      a(href="/logout").text-red-400 Logout
+    else
+      .text-grey-dark.mt-6
+            | Already have an account? 
+            a.no-underline.border-b.border-blue.text-blue(href='../login/')
+              | Log in
+            | .
+      .text-grey-dark.mt-6
+          | Need an account? 
+          a.no-underline.border-b.border-blue.text-blue(href='../signup/')
+            | Sign up
+          | .
+    

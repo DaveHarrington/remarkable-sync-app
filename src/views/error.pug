@@ -1,0 +1,7 @@
+extends global/layout.pug
+block page
+  .content
+    h1
+      =error.status
+      message
+    pre #{error.stack}

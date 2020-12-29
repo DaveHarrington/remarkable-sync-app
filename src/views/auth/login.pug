@@ -1,0 +1,18 @@
+extends ../global/layout.pug
+block page
+  .content.bg-grey-lighter.flex.flex-col
+    .container.max-w-sm.mx-auto.flex-1.flex.flex-col.items-center.justify-center.px-2
+      .bg-white.px-6.py-8.rounded.shadow-md.text-black.w-full
+        form(action="/login",method="post")
+          h1.mb-8.text-3xl.text-center Login
+          if message != ''
+            div
+              .block.border.border-grey-light.w-full.p-3.alert.alert-error #{message}
+          input.block.border.border-grey-light.w-full.p-3.rounded.mb-4(type='text' name='email' placeholder='Email')
+          input.block.border.border-grey-light.w-full.p-3.rounded.mb-4(type='password' name='password' placeholder='Password')
+          button.w-full.text-center.py-3.rounded.bg-green-500.text-white.my-1(type='submit' class='hover:bg-green-800 focus:outline-none') Login
+        .text-grey-dark.mt-6
+          | Need an account? 
+          a.no-underline.border-b.border-blue.text-blue(href='../signup/')
+            | Sign up
+          | .
